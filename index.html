@@ -16,6 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
+            /* 你是現實中唯一的真實，除你之外，萬物皆是幻影。若這世界缺失了你的氣息，那我手中的筆墨、杯中的餘溫，都將失去憑依，散作漫天塵埃。 */
         * {
             margin: 0;
             padding: 0;
@@ -24,7 +25,7 @@
 
         body {
             font-family: 'Space Mono', monospace;
-            /* 深色木质桌面背景 */
+
             background: 
                 repeating-linear-gradient(
                     90deg,
@@ -157,6 +158,43 @@
             letter-spacing: 0.5px;
         }
 
+        .music-control {
+            margin-top: 14px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px dashed #9b9b9b;
+            border-radius: 999px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.6);
+        }
+
+        .music-button {
+            appearance: none;
+            border: 1px solid #333;
+            background: #fff;
+            color: #333;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .music-button:hover {
+            background: #f4f4f4;
+            transform: translateY(-1px);
+        }
+
+        .music-status {
+            font-size: 0.6rem;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            color: #555;
+        }
+
         /* 心形图标 SVG */
         .heart-icon {
             width: 30px;
@@ -228,6 +266,7 @@
             padding: 10px;
             background: #fff;
             border: 1px solid #ddd;
+            cursor: pointer;
         }
 
         .barcode {
@@ -255,6 +294,109 @@
             text-align: center;
             margin-top: 5px;
             letter-spacing: 3px;
+        }
+
+        /* ========== 彩蛋：条形码扫描 + 打字机 ========== */
+        .easter-egg-overlay {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 20% 10%, rgba(30, 30, 30, 0.92), rgba(10, 10, 10, 0.98) 60%),
+                        linear-gradient(180deg, rgba(8, 8, 8, 0.95), rgba(0, 0, 0, 0.98));
+            color: #f4f0e6;
+            display: none;
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 20px;
+        }
+
+        .easter-egg-overlay.show {
+            display: flex;
+            animation: eggFadeIn 0.6s ease forwards;
+        }
+
+        @keyframes eggFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .easter-egg-card {
+            width: min(820px, 92vw);
+            max-height: 80vh;
+            background: rgba(18, 18, 18, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            padding: 28px 26px 30px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .easter-egg-title {
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 14px;
+        }
+
+        .easter-egg-text {
+            font-size: 0.9rem;
+            line-height: 1.75;
+            white-space: pre-wrap;
+            font-family: 'Space Mono', monospace;
+            max-height: 62vh;
+            overflow-y: auto;
+            padding-right: 6px;
+            flex: 1 1 auto;
+            min-height: 0;
+            overscroll-behavior: contain;
+        }
+
+        .typewriter-caret::after {
+            content: '▍';
+            display: inline-block;
+            margin-left: 2px;
+            animation: caretBlink 0.9s steps(1, end) infinite;
+        }
+
+        @keyframes caretBlink {
+            0%, 50% { opacity: 1; }
+            50.01%, 100% { opacity: 0; }
+        }
+
+        .easter-egg-close {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.65rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .easter-egg-close:hover {
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .easter-egg-card {
+                width: 94vw;
+                max-height: 78vh;
+                padding: 22px 18px 24px;
+            }
+
+            .easter-egg-text {
+                font-size: 0.85rem;
+                max-height: 60vh;
+            }
         }
 
         .footer-text {
@@ -472,7 +614,7 @@
     <!-- 环境装饰元素：宝丽来照片（左侧） -->
     <div class="polaroid-photo">
         <img src="bulr.jpg" alt="Memory Photo" loading="lazy">
-        <div class="polaroid-caption">Shot by jmr at 2024/09/26</div>
+        <div class="polaroid-caption">2024/09/26</div>
     </div>
     <div class="receipt-container">
         <div class="receipt-paper-texture"></div>
@@ -489,9 +631,13 @@
                 </svg>
                 
                 <div class="receipt-date">DATE: 2024/08/07</div>
+                <div class="music-control">
+                    <button class="music-button" id="music-toggle" type="button" aria-pressed="false">Play</button>
+                    <span class="music-status" id="music-label">Sunny Day - Paused</span>
+                </div>
             </div>
 
-            <!-- 恋爱时长项目 -->
+            <!-- 我真的好累 -->
             <div class="receipt-item">
                 <div class="item-header">
                     <span>ITEM</span>
@@ -499,10 +645,10 @@
                 </div>
                 <div class="item-name">LOVE DURATION</div>
                 <div class="item-value" id="love-timer">...</div>
-                <div class="item-detail">SINCE 2024/08/07 09:00</div>
+                <div class="item-detail">SINCE 2024/08/07</div>
             </div>
 
-            <!-- 生日倒计时项目 -->
+            <!-- 没有她什么都没有意义 -->
             <div class="receipt-item">
                 <div class="item-header">
                     <span>ITEM</span>
@@ -566,7 +712,7 @@
                 <div class="thank-you">THANK YOU!</div>
                 
                 <!-- 条形码 -->
-                <div class="barcode-container">
+                <div class="barcode-container" id="barcode-scan">
                     <div class="barcode">
                         <div class="bar"></div>
                         <div class="bar"></div>
@@ -598,14 +744,129 @@
                 </div>
                 
                 <div class="footer-text">&copy; 2024-2025 JMRLZW</div>
-                <div class="footer-text">JMR LOVES LZW FOREVER</div>
+                <div class="footer-text">JMR & LZW FOREVER</div>
                 <div class="footer-text">京ICP备20240930号-1</div>
             </div>
 
         </div>
     </div>
 
+    <div class="easter-egg-overlay" id="easter-egg">
+        <div class="easter-egg-card" role="dialog" aria-modal="true" aria-label="Hidden letter">
+            <button class="easter-egg-close" id="egg-close" type="button">Close</button>
+            <div class="easter-egg-title">BARCODE SCAN COMPLETE</div>
+            <div class="easter-egg-text typewriter-caret" id="egg-text"></div>
+        </div>
+    </div>
+
+    <audio id="bgm" src="M500000bYDlc2XxKLs.mp3" preload="metadata"></audio>
     <script>
+        setTimeout(() => {
+            document.title = '妳就是晴天，我的愛未眠。';
+        }, 300);
+
+        const music = document.getElementById('bgm');
+        const musicToggle = document.getElementById('music-toggle');
+        const musicLabel = document.getElementById('music-label');
+
+        function setMusicState(playing) {
+            musicToggle.setAttribute('aria-pressed', String(playing));
+            musicToggle.textContent = playing ? 'Pause' : 'Play';
+            musicLabel.textContent = playing ? 'Sunny Day - Playing' : 'Sunny Day - Paused';
+        }
+
+        setMusicState(false);
+
+        musicToggle.addEventListener('click', async () => {
+            if (music.paused) {
+                try {
+                    await music.play();
+                    setMusicState(true);
+                } catch (error) {
+                    setMusicState(false);
+                }
+            } else {
+                music.pause();
+                setMusicState(false);
+            }
+        });
+
+        const eggOverlay = document.getElementById('easter-egg');
+        const eggText = document.getElementById('egg-text');
+        const eggClose = document.getElementById('egg-close');
+        const barcodeScan = document.getElementById('barcode-scan');
+        const eggContent = `
+然后因为这一切的幻影就让其缠绕不去……明明她只是遥远的影子音乐会的旋律中回荡我却在这里幼稚如孩童半年未见她已成熟而我仍是蛹中蠕动的那一缕不甘。聊了好久好久每字每句都像救赎却又如刀刃切割着我对她的全部她对我的微不足道。为什么理我？为什么不？同桌的日子早在我觉醒前她已知晓我的心事那些随意聊天那些没留意她的喜好那些可能让她印象崩坏的蠢事如今都化作迷茫的雾气我不讨厌她但……结束吗？年初的信坦白了喜欢却没教会我摆脱依然痴迷于这虚空的漩涡她那么好好到我不愿一丝伤害降临她在想什么？对我的看法是怜悯还是遗忘？同一个高中却不同时空不同班型机会如沙漏般溜走我后悔拒绝或许一切只是幻觉她根本不识我这尘埃。愿意用消失换她快乐每条消息都是打扰她的疲惫在回复的空白中显露新的一天仍在想她胡思乱想她会不会从小学起就藏着恋爱或喜欢的人那荣幸的谁能被她青睐？而我只剩自白的混乱这循环的痛楚如死去一段时间的灵魂沉溺于无意义的消耗体内物质枯竭却还要伪装运动维持电量观察真实的错误自我。学生手册般的承诺已成墓碑连接过去的慰籍却揭示未来的虚无早晨醒来若无其事穿上宽松的伪装走向焦虑的学校那里她或许长大我却未曾班级总难纳入我这空白的象征大家以为我完结但我分明注定崩塌惩罚以生命为手段看着成果自嘲岁月每日皆是刑罚认输吧作为我是哪个的标记带来无穷负面却深知无可奈何顺其自然结果痛得不动如世界观的缩影幻化成终了的循环变成怎么样都行啦……这种失败彻底浪费青春的存在还是教训而已对于无可回复的部分真是！尽管困惑与忧郁缠身不顾那本手册的象征哪怕注入逝去的承诺作为与将来的连接却不想停止这里无进展方向应暂停只会牺牲精力留给失落而非能量转移即负面发展的无穷。已死心即使不习惯也到此地步只有这条路挑战逝去的结局不知情时变成遗忘被剪除的部分形同寂寞的混乱不可读的空白难道唯一的惩罚剩生命看着显而易见的结论无法保持实际自我非常自取其笑此后每日将是惩罚本身最终认输并作为特定标记然而那地步只带空白。尽管如此每晨确认手册与累积理解为了提醒不一致的反省现在只能这样因为手册作为凭证赋予“存活”的见证但现实的手册？仅是荣誉签名版在指尖如墓碑感受既完整历史也令其出现在范畴哪怕稀松形式真是物是人非的剩余存在吗？这层关系如深渊揭示事件指向虚无的里程碑而已。然而早上醒来还要若无其事伪装开始精神满满运动前往令人焦虑的地方比如她的世界那班级难把我纳入每天准备走出内心藩篱适应命定的变迁这一模式持续。不过……明天也一定重新起来从橱柜拿出校服般思念先放在床单上下次不得已。从现在开始的今天会是很漫长的一天……就这样想了也许明天或许多今日后有部分将我分割到无边宇宙的时代依然保留值得留念的记忆未可知可能性的事态呢……这就是自我的命定混乱向依赖的真实情感传达已知没办法如今被填满的或许是空洞假象符合代价的复杂感应对以往经历的回忆那时全然考虑初始点就是真正的平衡所以这已是终了的标记将在此终止以后未来再度归结至今未完结时再作为启动解开迷乱束缚重新到达……好了如此！
+        `.trim();
+
+        let scanCount = 0;
+        let scanTimer = null;
+        let typingTimer = null;
+        let eggVisible = false;
+
+        function resetScan() {
+            scanCount = 0;
+            if (scanTimer) {
+                clearTimeout(scanTimer);
+                scanTimer = null;
+            }
+        }
+
+        function openEgg() {
+            if (eggVisible) return;
+            eggVisible = true;
+            eggOverlay.classList.add('show');
+            document.body.style.overflow = 'hidden';
+            startTypewriter();
+        }
+
+        function closeEgg() {
+            eggVisible = false;
+            eggOverlay.classList.remove('show');
+            document.body.style.overflow = '';
+            if (typingTimer) {
+                clearInterval(typingTimer);
+                typingTimer = null;
+            }
+            eggText.textContent = '';
+            eggText.classList.add('typewriter-caret');
+        }
+
+        function startTypewriter() {
+            const speed = 18;
+            let index = 0;
+            eggText.textContent = '';
+            eggText.classList.add('typewriter-caret');
+            if (typingTimer) clearInterval(typingTimer);
+
+            typingTimer = setInterval(() => {
+                eggText.textContent += eggContent[index] || '';
+                index += 1;
+                if (index >= eggContent.length) {
+                    clearInterval(typingTimer);
+                    typingTimer = null;
+                    eggText.classList.remove('typewriter-caret');
+                }
+            }, speed);
+        }
+
+        barcodeScan.addEventListener('click', () => {
+            scanCount += 1;
+            if (scanTimer) clearTimeout(scanTimer);
+            scanTimer = setTimeout(resetScan, 1500);
+            if (scanCount >= 5) {
+                resetScan();
+                openEgg();
+            }
+        });
+
+        eggClose.addEventListener('click', closeEgg);
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && eggVisible) {
+                closeEgg();
+            }
+        });
+
         const startDate = new Date('2024-08-07T09:00:00');
         const bdayMonth = 9;
         const bdayDay = 26;
