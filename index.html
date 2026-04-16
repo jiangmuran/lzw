@@ -907,28 +907,40 @@
         </div>
     </div>
 
-    <audio id="bgm" preload="none" aria-hidden="true"></audio>
+    <audio id="bgm-a" preload="none" aria-hidden="true"></audio>
+    <audio id="bgm-b" preload="none" aria-hidden="true"></audio>
     <script>
         setTimeout(() => {
             document.title = '妳就是晴天，我的愛未眠。';
         }, 300);
 
+        /* ─── Music: dual-audio crossfade player ─── */
         const tracks = [
             { src: 'audio/sunny.mp3',    label: 'Sunny' },
             { src: 'audio/distance.aac', label: 'Distance' },
             { src: 'audio/theone.mp3',   label: 'The One' }
         ];
 
-        const audio = document.getElementById('bgm');
+        const audioA = document.getElementById('bgm-a');
+        const audioB = document.getElementById('bgm-b');
         const musicToggle = document.getElementById('music-toggle');
         const musicLabel = document.getElementById('music-label');
         const musicPrev = document.getElementById('music-prev');
         const musicNext = document.getElementById('music-next');
         const musicDots = Array.from(document.querySelectorAll('.music-dot'));
 
-        let current = 0;
+        let active = audioA;
+        let inactive = audioB;
+        let currentIndex = 0;
         let isPlaying = false;
         let switching = false;
+
+        // Fade duration (ms) — total crossfade ~= max(FADE_OUT, LOAD) + FADE_IN overlap
+        const FADE_OUT = 1100;
+        const FADE_IN  = 1100;
+        const LOAD_TIMEOUT = 4000;
+
+        function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
 
         function setLabel(text) {
             const el = musicLabel.querySelector('.track-label');
@@ -950,19 +962,23 @@
         }
 
         function updateDots() {
-            musicDots.forEach((d, i) => d.classList.toggle('active', i === current));
+            musicDots.forEach((d, i) => d.classList.toggle('active', i === currentIndex));
         }
 
-        let _fadeToken = 0;
-        function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
-        function fade(target, ms) {
-            const my = ++_fadeToken;
+        // Per-audio fade token: each audio has its own cancellation id
+        const _fadeTokens = new WeakMap();
+        _fadeTokens.set(audioA, 0);
+        _fadeTokens.set(audioB, 0);
+
+        function fade(audio, target, ms) {
+            const my = (_fadeTokens.get(audio) || 0) + 1;
+            _fadeTokens.set(audio, my);
             target = clamp01(target);
             return new Promise((resolve) => {
                 const start = performance.now();
                 const from = clamp01(audio.volume);
                 function step(now) {
-                    if (my !== _fadeToken) { resolve(); return; } // superseded
+                    if (_fadeTokens.get(audio) !== my) { resolve(); return; }
                     const t = Math.min(1, Math.max(0, (now - start) / ms));
                     try { audio.volume = clamp01(from + (target - from) * t); }
                     catch (_) { resolve(); return; }
@@ -973,133 +989,159 @@
             });
         }
 
-        function resolveTrackUrl(src) {
-            // audio.src getter returns absolute URL; match against filename
-            return audio.src && audio.src.endsWith(src);
+        function hasSrc(audio, src) {
+            return !!(audio.src && audio.src.endsWith(src));
         }
 
-        function waitReady(readyLevel = 3, timeoutMs = 2500) {
-            return new Promise((resolve) => {
-                if (audio.readyState >= readyLevel) return resolve();
+        // Load audio and wait for it to be playable; returns Promise<void>
+        function loadReady(audio, src, timeoutMs = LOAD_TIMEOUT) {
+            return new Promise((resolve, reject) => {
+                if (hasSrc(audio, src) && audio.readyState >= 3) return resolve();
                 let done = false;
                 const onReady = () => { if (done) return; done = true; cleanup(); resolve(); };
+                const onError = (e) => { if (done) return; done = true; cleanup(); reject(e); };
                 const cleanup = () => {
                     audio.removeEventListener('canplay', onReady);
                     audio.removeEventListener('canplaythrough', onReady);
                     audio.removeEventListener('loadeddata', onReady);
+                    audio.removeEventListener('error', onError);
                 };
                 audio.addEventListener('canplay', onReady, { once: true });
                 audio.addEventListener('canplaythrough', onReady, { once: true });
                 audio.addEventListener('loadeddata', onReady, { once: true });
-                setTimeout(() => { if (!done) { done = true; cleanup(); resolve(); } }, timeoutMs);
+                audio.addEventListener('error', onError, { once: true });
+                if (!hasSrc(audio, src)) {
+                    audio.src = src;
+                    try { audio.load(); } catch (_) {}
+                }
+                setTimeout(() => onReady(), timeoutMs);
             });
         }
 
-        async function attemptPlay() {
-            // Call play() synchronously (gesture-valid); handle AbortError by waiting for readiness
-            try {
-                const p = audio.play();
-                if (p !== undefined) await p;
-                return null;
-            } catch (err) {
-                if (err && err.name === 'AbortError') {
-                    // Common when src just changed — wait for data then retry once
-                    await waitReady(3);
-                    try {
-                        const p2 = audio.play();
-                        if (p2 !== undefined) await p2;
-                        return null;
-                    } catch (err2) {
-                        return err2;
-                    }
-                }
-                return err;
-            }
-        }
-
-        async function playTrack(index) {
-            if (switching) return false;
+        // SYNC: must be called in a user-gesture handler. Kicks off play() immediately,
+        // then hands off to async finishPlay for fades/bookkeeping.
+        function beginPlay(index) {
+            if (switching) return;
             switching = true;
             const track = tracks[index];
-            const sameTrack = resolveTrackUrl(track.src);
 
-            // Always update label + dots optimistically so UI feels responsive
-            current = index;
+            currentIndex = index;
             updateDots();
             setLabel(track.label);
 
-            // Fade out current if we're replacing track
-            if (!sameTrack && !audio.paused) {
-                await fade(0, 220);
-                audio.pause();
+            const sameTrack = hasSrc(active, track.src);
+
+            if (sameTrack) {
+                // Same track — resume on active element
+                if (!active.paused) { switching = false; return; }
+                active.volume = 0;
+                const p = active.play();
+                finishResume(p, track);
+                return;
             }
 
-            // Swap source (browser will lazy-load since preload="none")
-            if (!sameTrack) {
-                audio.src = track.src;
-                audio.volume = 0;
-                try { audio.load(); } catch (_) {}
-            } else if (audio.volume > 0.01 && audio.paused) {
-                audio.volume = 0;
-            }
+            // Crossfade — set src + play SYNCHRONOUSLY on inactive while gesture is valid
+            const wasPlaying = isPlaying && !active.paused;
+            try {
+                inactive.src = track.src;
+                inactive.volume = 0;
+                try { inactive.load(); } catch (_) {}
+            } catch (_) {}
+            const playPromise = inactive.play();
+            const fadeOutPromise = wasPlaying ? fade(active, 0, FADE_OUT) : Promise.resolve();
 
-            const err = await attemptPlay();
-            if (err) {
+            finishCrossfade(playPromise, fadeOutPromise, track, wasPlaying);
+        }
+
+        async function finishResume(playPromise, track) {
+            try {
+                if (playPromise !== undefined) await playPromise;
+            } catch (err) {
                 switching = false;
                 setButtonState(false);
-                setLabel(err.name === 'NotAllowedError' ? 'Tap Play' : track.label);
-                return false;
+                setLabel(err && err.name === 'NotAllowedError' ? 'Tap Play' : track.label);
+                return;
             }
-
-            await fade(1, 320);
-            try { audio.volume = 1; } catch (_) {} // safety: ensure final value
+            await fade(active, 1, FADE_IN);
+            try { active.volume = 1; } catch (_) {}
             setButtonState(true);
             switching = false;
-            return true;
         }
 
-        async function togglePlay() {
+        async function finishCrossfade(playPromise, fadeOutPromise, track, wasPlaying) {
+            // Wait for the new track to actually begin playing
+            try {
+                if (playPromise !== undefined) await playPromise;
+            } catch (err) {
+                // play was denied or aborted — undo fade-out to restore old audio
+                if (wasPlaying) {
+                    try { await fade(active, 1, 300); } catch (_) {}
+                }
+                switching = false;
+                setButtonState(wasPlaying);
+                setLabel(err && err.name === 'NotAllowedError' ? 'Tap Play' : track.label);
+                return;
+            }
+
+            // Fade in new while old continues fading out (overlap = real crossfade)
+            const fadeInPromise = fade(inactive, 1, FADE_IN);
+            await Promise.all([fadeOutPromise, fadeInPromise]);
+
+            try { inactive.volume = 1; } catch (_) {}
+            if (!active.paused) { active.pause(); }
+            active.currentTime = 0;
+
+            // Swap: inactive becomes the new active
+            const tmp = active; active = inactive; inactive = tmp;
+
+            setButtonState(true);
+            switching = false;
+        }
+
+        function togglePlay() {
             if (switching) return;
             if (!isPlaying) {
-                await playTrack(current);
+                beginPlay(currentIndex);
             } else {
+                // Pause — async fade out
                 switching = true;
-                await fade(0, 180);
-                audio.pause();
-                setButtonState(false);
-                switching = false;
+                (async () => {
+                    await fade(active, 0, 260);
+                    active.pause();
+                    try { active.volume = 1; } catch (_) {}
+                    setButtonState(false);
+                    switching = false;
+                })();
             }
         }
 
-        async function nextTrack() {
-            const n = (current + 1) % tracks.length;
-            if (isPlaying) await playTrack(n);
-            else { current = n; updateDots(); setLabel(tracks[n].label); }
+        function nextTrack() {
+            const n = (currentIndex + 1) % tracks.length;
+            if (isPlaying) beginPlay(n);
+            else { currentIndex = n; updateDots(); setLabel(tracks[n].label); }
         }
-        async function prevTrack() {
-            const n = (current - 1 + tracks.length) % tracks.length;
-            if (isPlaying) await playTrack(n);
-            else { current = n; updateDots(); setLabel(tracks[n].label); }
+        function prevTrack() {
+            const n = (currentIndex - 1 + tracks.length) % tracks.length;
+            if (isPlaying) beginPlay(n);
+            else { currentIndex = n; updateDots(); setLabel(tracks[n].label); }
         }
 
         musicToggle.addEventListener('click', togglePlay);
         musicNext.addEventListener('click', nextTrack);
         musicPrev.addEventListener('click', prevTrack);
         musicDots.forEach((d) => {
-            d.addEventListener('click', async () => {
+            d.addEventListener('click', () => {
                 const idx = parseInt(d.dataset.index, 10);
-                if (idx === current && isPlaying) return;
-                if (isPlaying) await playTrack(idx);
-                else { current = idx; updateDots(); setLabel(tracks[idx].label); }
+                if (idx === currentIndex && isPlaying) return;
+                if (isPlaying) beginPlay(idx);
+                else { currentIndex = idx; updateDots(); setLabel(tracks[idx].label); }
             });
         });
 
-        audio.addEventListener('ended', () => { nextTrack(); });
-        // Recover gracefully from stalled loads
-        audio.addEventListener('error', () => {
-            setButtonState(false);
-            switching = false;
-        });
+        // Auto-advance at end
+        const onEnded = (e) => { if (e.target === active) nextTrack(); };
+        audioA.addEventListener('ended', onEnded);
+        audioB.addEventListener('ended', onEnded);
 
         document.addEventListener('keydown', (e) => {
             if (e.target.closest('input, textarea, [contenteditable]')) return;
